@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Diesel — América do Sul</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0b0c10;--panel:#111318;--border:#1e2130;
+  --br:#f5a623;--ar:#4fc3f7;--cl:#e84393;--oil:#ff6b35;
+  --text:#e8eaf0;--muted:#6b7280;--green:#22c55e;--red:#ef4444;
+  --warn:#f59e0b;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");pointer-events:none;z-index:0}
+
+/* ── TABS NAV ── */
+.tab-nav{position:relative;z-index:10;display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);background:rgba(11,12,16,.95);padding:0 28px}
+.tab-btn{padding:11px 20px;font-family:'DM Mono',monospace;font-size:12px;background:transparent;border:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .2s,border-color .2s;letter-spacing:.5px}
+.tab-btn.active{color:var(--text);border-bottom-color:var(--br)}
+.tab-btn:hover:not(.active){color:var(--text)}
+
+/* ── HEADER ── */
+header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border);background:linear-gradient(90deg,rgba(245,166,35,.06),transparent 60%);flex-wrap:wrap;gap:10px}
+.hdr-left{display:flex;align-items:center;gap:12px}
+.logo{width:40px;height:40px;background:conic-gradient(from 0deg,var(--br),var(--cl),var(--ar),var(--br));border-radius:10px;display:grid;place-items:center;font-size:17px;animation:hue 8s linear infinite;flex-shrink:0}
+@keyframes hue{to{filter:hue-rotate(360deg)}}
+.hdr-title h1{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;letter-spacing:-.5px}
+.hdr-title p{font-size:10px;color:var(--muted);margin-top:2px}
+.hdr-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+/* status badges */
+.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px}
+.badge-live{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+.badge-live::before{content:'';width:6px;height:6px;border-radius:50%;background:#ef4444;animation:blink 1.4s ease-in-out infinite;flex-shrink:0}
+.badge-update{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#4ade80;cursor:pointer;transition:background .2s}
+.badge-update:hover{background:rgba(34,197,94,.2)}
+.badge-hint{border:1px dashed var(--border);color:var(--muted);font-size:10px;cursor:default}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── NEWS BANNER ── */
+.news-banner{position:relative;z-index:9;border-bottom:1px solid rgba(239,68,68,.2);padding:0;display:flex;align-items:stretch;min-height:36px;overflow:hidden}
+.news-label{background:rgba(239,68,68,.2);color:#f87171;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:0 14px;display:flex;align-items:center;white-space:nowrap;flex-shrink:0;border-right:1px solid rgba(239,68,68,.2)}
+.news-track{flex:1;overflow:hidden;display:flex;align-items:center}
+.news-scroll{white-space:nowrap;display:inline-block;animation:scroll-news 50s linear infinite;font-size:11px;color:#fca5a5;padding:0 20px}
+.news-scroll.paused{animation-play-state:paused}
+@keyframes scroll-news{0%{transform:translateX(100vw)}100%{transform:translateX(-100%)}}
+.news-refresh{background:rgba(255,255,255,.04);border:none;border-left:1px solid var(--border);color:var(--muted);padding:0 14px;cursor:pointer;font-size:14px;transition:background .2s;flex-shrink:0}
+.news-refresh:hover{background:rgba(255,255,255,.08);color:var(--text)}
+
+/* ── TAB PAGES ── */
+.tab-page{display:none}.tab-page.active{display:block}
+
+/* ── MAIN ── */
+main{position:relative;z-index:1;padding:22px 28px;display:grid;grid-template-columns:repeat(12,1fr);gap:15px}
+
+/* ── PANELS ── */
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;overflow:hidden;transition:border-color .25s,box-shadow .25s}
+.panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--ac),transparent);opacity:.5}
+.panel.br{--ac:var(--br)}.panel.ar{--ac:var(--ar)}.panel.cl{--ac:var(--cl)}.panel.oil{--ac:var(--oil)}.panel.neu{--ac:var(--muted)}
+.pl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.pt{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.clickable{cursor:pointer}.clickable:hover{border-color:var(--ac);box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.cpill{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.04);border:1px solid var(--border);padding:2px 9px;border-radius:20px;font-size:10px;color:var(--muted);transition:background .2s}
+.clickable:hover .cpill{background:rgba(255,255,255,.08);color:var(--text)}
+
+/* ── KPI CARDS ── */
+.kpi-grid{grid-column:span 12;display:grid;grid-template-columns:repeat(4,1fr);gap:13px}
+.kcard{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:15px 17px;position:relative;overflow:hidden;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;user-select:none}
+.kcard:hover{transform:translateY(-3px);border-color:var(--c);box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.kcard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--c);opacity:.7}
+.kyoy{position:absolute;top:9px;right:9px;font-size:9px;color:var(--muted);background:rgba(255,255,255,.04);border:1px dashed var(--border);padding:2px 7px;border-radius:10px}
+.kcountry{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.kval{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--c);line-height:1;transition:color .3s}
+.ksub{font-size:10px;color:var(--muted);margin-top:3px}
+.kchange{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:500;margin-top:7px}
+.chup{background:rgba(239,68,68,.15);color:#f87171}.chdn{background:rgba(34,197,94,.15);color:#4ade80}.chne{background:rgba(107,114,128,.15);color:#9ca3af}
+.kyoy-val{font-size:10px;color:var(--muted);margin-top:4px;padding-top:4px;border-top:1px solid var(--border)}
+
+/* spans */
+.s8{grid-column:span 8}.s4{grid-column:span 4}.s6{grid-column:span 6}.s4a{grid-column:span 4}.s12{grid-column:span 12}
+.cw{position:relative;height:195px}.cw.tall{height:235px}.cw.sm{height:165px}
+
+/* ── UPDATE OVERLAY ── */
+.upd-overlay{position:absolute;inset:0;background:rgba(11,12,16,.85);display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;z-index:5;border-radius:14px;backdrop-filter:blur(4px)}
+.upd-overlay.show{display:flex}
+.spin{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--br);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── DEP BARS ── */
+.dep-row{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.dep-l{width:70px;font-size:11px;display:flex;align-items:center;gap:5px}
+.dep-bg{flex:1;height:19px;background:#1a1d28;border-radius:4px;overflow:hidden}
+.dep-f{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:6px;font-size:9px;font-weight:500}
+.dep-pct{width:36px;text-align:right;font-size:12px;font-weight:600}
+
+/* ── CAUSES ── */
+.ci{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)}
+.ci:last-child{border-bottom:none}
+.cn{min-width:19px;height:19px;background:var(--oil);border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:700;color:#000;flex-shrink:0}
+.ct{font-size:11px;line-height:1.5}.ct strong{color:var(--oil)}
+
+/* ── PROJ TABLE ── */
+.ptbl{width:100%;border-collapse:collapse}
+.ptbl th{text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:5px 6px;border-bottom:1px solid var(--border)}
+.ptbl td{padding:6px 6px;font-size:11px;border-bottom:1px solid rgba(30,33,48,.5)}
+.ptbl tr:last-child td{border-bottom:none}
+.stag{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600}
+.tb{background:rgba(239,68,68,.15);color:#f87171}.tm{background:rgba(245,158,11,.15);color:#fbbf24}.tg{background:rgba(34,197,94,.15);color:#4ade80}
+
+/* ── BRENT METER ── */
+.om{display:flex;flex-direction:column;align-items:center;padding:4px 0}
+.mr{position:relative;width:120px;height:120px}
+.mr svg{transform:rotate(-90deg)}
+.mc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.mv{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--oil);line-height:1}
+.mu{font-size:10px;color:var(--muted)}
+
+/* ── NEWS PANEL ── */
+.news-panel{grid-column:span 12}
+.news-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:2px}
+.news-card{background:#0f1117;border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:border-color .2s,background .2s;position:relative;overflow:hidden}
+.news-card:hover{border-color:#2a2d3e;background:#111520}
+.news-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--nc,var(--muted))}
+.news-time{font-size:10px;color:var(--muted);margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.news-dot{width:6px;height:6px;border-radius:50%;background:var(--nc,var(--muted));flex-shrink:0}
+.news-headline{font-size:12px;line-height:1.5;font-weight:500;margin-bottom:6px}
+.news-src{font-size:10px;color:var(--muted)}
+.news-tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);margin-bottom:6px}
+
+/* ── LAST UPDATE BAR ── */
+.update-bar{grid-column:span 12;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--panel);border:1px solid var(--border);border-radius:10px;font-size:10px;color:var(--muted)}
+.update-bar .sources{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.src-tag{display:inline-block;padding:2px 7px;background:#0f1117;border:1px solid var(--border);border-radius:4px;font-size:9px}
+.next-update{display:flex;align-items:center;gap:8px}
+.countdown{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--br)}
+
+/* ── MODAL ── */
+.moverlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(10px);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s}
+.moverlay.open{opacity:1;pointer-events:all}
+.modal{background:#13151f;border:1px solid var(--border);border-radius:20px;width:min(880px,96vw);max-height:92vh;overflow-y:auto;transform:translateY(16px) scale(.97);transition:transform .3s}
+.moverlay.open .modal{transform:translateY(0) scale(1)}
+.mhdr{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#13151f;z-index:2}
+.mhdr-l{display:flex;align-items:center;gap:11px}
+.mflag{font-size:26px}
+.mhtitle{font-family:'Syne',sans-serif;font-size:16px;font-weight:800}
+.mhsub{font-size:11px;color:var(--muted);margin-top:2px}
+.mclose{width:30px;height:30px;border-radius:50%;background:var(--border);border:none;color:var(--text);cursor:pointer;font-size:14px;display:grid;place-items:center;flex-shrink:0}
+.mclose:hover{background:#2a2d3e}
+.mbody{padding:20px 24px;display:flex;flex-direction:column;gap:16px}
+.mkpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.mkpi{background:#0f1117;border:1px solid var(--border);border-radius:10px;padding:13px 15px;text-align:center}
+.mkl{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px}
+.mkv{font-family:'Syne',sans-serif;font-size:19px;font-weight:800;line-height:1}
+.mks{font-size:10px;color:var(--muted);margin-top:3px}
+.dbadge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:700;margin-top:3px}
+.dup{background:rgba(239,68,68,.15);color:#f87171}.ddn{background:rgba(34,197,94,.15);color:#4ade80}
+.mtabs{display:flex;gap:4px;background:#0f1117;border-radius:10px;padding:4px}
+.mtab{padding:6px 14px;border-radius:7px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Mono',monospace;font-size:12px;transition:background .2s,color .2s}
+.mtab.active{background:var(--border);color:var(--text)}
+.tpanel{display:none}.tpanel.active{display:block}
+.mst{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:11px;display:flex;align-items:center;gap:7px}
+.mcw{height:230px;position:relative}
+.tline{display:flex;flex-direction:column}
+.tli{display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-left:2px solid var(--border);padding-left:16px;position:relative}
+.tli::before{content:'';position:absolute;left:-5px;top:13px;width:8px;height:8px;border-radius:50%;background:var(--ac,var(--muted));border:2px solid #13151f}
+.tldate{min-width:68px;font-size:10px;color:var(--muted);flex-shrink:0}
+.tltext{font-size:11px;line-height:1.5}.tltext strong{color:var(--ac,var(--text))}
+
+/* ══════════════════════════════════════
+   ABA MAPA REGIONAL
+══════════════════════════════════════ */
+.map-page{position:relative;z-index:1;padding:22px 28px}
+.map-controls{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.country-tab{padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Mono',monospace;font-size:12px;transition:all .2s}
+.country-tab.active-br{background:rgba(245,166,35,.15);border-color:var(--br);color:var(--br)}
+.country-tab.active-ar{background:rgba(79,195,247,.15);border-color:var(--ar);color:var(--ar)}
+.country-tab.active-cl{background:rgba(232,67,147,.15);border-color:var(--cl);color:var(--cl)}
+.map-layout{display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start}
+.map-container{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;position:relative;min-height:520px}
+.map-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;margin-bottom:4px}
+.map-subtitle{font-size:10px;color:var(--muted);margin-bottom:16px}
+.svg-map{width:100%;height:auto}
+.region-path{cursor:pointer;transition:opacity .2s,filter .2s;stroke:#0b0c10;stroke-width:0.5}
+.region-path:hover{opacity:.85;filter:brightness(1.2)}
+.region-path.selected{stroke:#fff;stroke-width:1.5;filter:brightness(1.3)}
+.map-tooltip{position:absolute;background:#13151f;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:11px;pointer-events:none;z-index:10;display:none;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.map-tooltip.show{display:block}
+.tt-region{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:5px}
+.tt-price{font-size:18px;font-weight:800;font-family:'Syne',sans-serif}
+.tt-detail{font-size:10px;color:var(--muted);margin-top:3px}
+.tt-posto{font-size:10px;color:var(--warn);margin-top:5px;padding-top:5px;border-top:1px solid var(--border)}
+
+/* Sidebar do mapa */
+.map-sidebar{display:flex;flex-direction:column;gap:12px}
+.map-legend-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
+.legend-title{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.legend-bar{position:relative;height:12px;border-radius:6px;margin-bottom:8px;background:linear-gradient(90deg,#22c55e,#f59e0b,#ef4444)}
+.legend-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--muted)}
+.region-list{display:flex;flex-direction:column;gap:6px;margin-top:6px;max-height:400px;overflow-y:auto}
+.region-item{display:flex;align-items:center;gap:10px;padding:9px 11px;background:#0f1117;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color .2s}
+.region-item:hover,.region-item.selected{border-color:rgba(255,255,255,.2)}
+.ri-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.ri-name{flex:1;font-size:11px}
+.ri-price{font-family:'Syne',sans-serif;font-size:13px;font-weight:700}
+.ri-change{font-size:10px;color:var(--muted)}
+.posto-card{background:var(--panel);border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:14px}
+.posto-title{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--warn);margin-bottom:10px}
+.posto-item{padding:9px 0;border-bottom:1px solid var(--border)}
+.posto-item:last-child{border-bottom:none}
+.posto-name{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;margin-bottom:3px}
+.posto-loc{font-size:10px;color:var(--muted)}
+.posto-price{font-size:15px;font-weight:800;font-family:'Syne',sans-serif;margin-top:4px}
+.posto-note{font-size:9px;color:var(--muted);margin-top:2px}
+
+/* Period selector */
+.period-info{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
+.period-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(30,33,48,.5);font-size:11px}
+.period-row:last-child{border-bottom:none}
+.period-label{color:var(--muted)}
+.period-val{font-family:'Syne',sans-serif;font-weight:700}
+
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:11px 28px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:10px;flex-wrap:wrap;gap:6px}
+
+@media(max-width:900px){
+  main{grid-template-columns:1fr;padding:12px;gap:12px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .s8,.s4,.s6,.s4a,.s12{grid-column:span 1}
+  .news-grid{grid-template-columns:1fr}
+  .mkpi-row{grid-template-columns:1fr 1fr}
+  .mbody{padding:14px}
+  header{padding:12px 14px}
+  .mtabs{flex-wrap:wrap}
+  .map-layout{grid-template-columns:1fr}
+  .map-page{padding:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="hdr-left">
+    <div class="logo">⛽</div>
+    <div class="hdr-title">
+      <h1>FUEL WATCH — SOUTH AMERICA</h1>
+      <p>Combustíveis · Brasil · Argentina · Chile · quinta-feira, 22 de outubro de 2026</p>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="badge badge-hint">👆 Clique nos cards para YoY</div>
+    <div class="badge badge-update" onclick="triggerFullUpdate()" id="btnUpdate">🔄 Atualizar Agora</div>
+    <div class="badge badge-live" id="liveBadge">AO VIVO</div>
+  </div>
+</header>
+
+<!-- TAB NAV -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchMainTab(this,'tab-dashboard')">📊 Dashboard</button>
+  <button class="tab-btn" onclick="switchMainTab(this,'tab-mapa')">🗺 Mapa Regional de Preços</button>
+</div>
+
+<!-- NEWS BANNER (ticker) -->
+<div class="news-banner">
+  <div class="news-label">📡 ÚLTIMAS</div>
+  <div class="news-track">
+    <span class="news-scroll" id="newsTicker">🇧🇷 Diesel S10: R$7,34/L (ANP 11–17/out) — 4ª semana estável · subvenção ao diesel importado R$3,52/L desde 13/out vs defasagem Petrobras R$3,50 (Abicom) · 🛢 Brent US$111,77 (22/out), maior nível em ~5 meses com ataques a petroleiros em Ormuz · 🇦🇷 YPF CABA: gasoil premium ARS$2.469 / comum ARS$2.249 (20/out) · 🇨🇱 ENAP: diesel +$91,5/L desde 22/out (5ª alta consecutiva) — governo subsidia ~$200/L · 🇧🇷 Frete rodoviário +13,1% no 3º tri (IFP) · Período apuração: 01/fev/2026 a 22/out/2026 — acumulado BR: +20,5% · 🇦🇷 Posto Garramuño (Paso de Los Libres) e Eloy Guerrero (Mendoza) monitorados · 🇨🇱 Rede COPEC e Shell Chile como referência de preços regionais</span>
+  </div>
+  <button class="news-refresh" onclick="fetchNews()" title="Atualizar notícias">↻</button>
+</div>
+
+<!-- ══════════════ TAB DASHBOARD ══════════════ -->
+<div id="tab-dashboard" class="tab-page active">
+<main>
+
+<!-- KPI CARDS -->
+<div class="kpi-grid">
+  <div class="kcard" style="--c:var(--br)" onclick="openModal('br')" id="kcard-br">
+    <span class="kyoy">↗ YoY</span>
+    <div class="kcountry">🇧🇷 Brasil · Diesel S10</div>
+    <div class="kval" id="kv-br">R$ 7,34</div>
+    <div class="ksub" id="ks-br">R$/L · média nacional ANP (11–17/out)</div>
+    <div class="kchange chup" id="kc-br">▲ +20,5% desde 01/fev</div>
+    <div class="kyoy-val" id="kyoy-br">Fev/26: R$6,09/L → Out/26: R$7,34</div>
+  </div>
+  <div class="kcard" style="--c:var(--ar)" onclick="openModal('ar')" id="kcard-ar">
+    <span class="kyoy">↗ YoY</span>
+    <div class="kcountry">🇦🇷 Argentina · Gasoil</div>
+    <div class="kval" id="kv-ar">$ 2.469</div>
+    <div class="ksub" id="ks-ar">ARS/L · CABA (YPF Infinia Diésel, 20/out)</div>
+    <div class="kchange chup" id="kc-ar">▲ +52,4% desde 01/fev</div>
+    <div class="kyoy-val" id="kyoy-ar">Fev/26: ARS$1.620 → Out/26: ARS$2.469</div>
+  </div>
+  <div class="kcard" style="--c:var(--cl)" onclick="openModal('cl')" id="kcard-cl">
+    <span class="kyoy">↗ YoY</span>
+    <div class="kcountry">🇨🇱 Chile · Diésel</div>
+    <div class="kval" id="kv-cl">$ 1.463</div>
+    <div class="ksub" id="ks-cl">CLP/L · Região Metropolitana (CNE, 20/out)</div>
+    <div class="kchange chup" id="kc-cl">▲ +50,1% desde 01/fev</div>
+    <div class="kyoy-val" id="kyoy-cl">Fev/26: CLP$975/L → Out/26: CLP$1.463</div>
+  </div>
+  <div class="kcard" style="--c:var(--oil)" onclick="openModal('brent')" id="kcard-brent">
+    <span class="kyoy">↗ YoY</span>
+    <div class="kcountry">🛢 Petróleo Brent</div>
+    <div class="kval" id="kv-brent">$ 112</div>
+    <div class="ksub" id="ks-brent">USD/barril · 22 Out 2026</div>
+    <div class="kchange chup" id="kc-brent">▲ +55% vs Fev/26</div>
+    <div class="kyoy-val" id="kyoy-brent">Fev/26: ~$72 → Pico: $126 → Hoje: ~$112</div>
+  </div>
+</div>
+
+<!-- CHART BR -->
+<div class="panel br s8 clickable" onclick="openModal('br')" style="position:relative">
+  <div class="pl">Evolução período — 01/fev a 22/out — clique para YoY</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+    <div class="pt" style="margin-bottom:0">🇧🇷 Diesel S10 Brasil (R$/L)</div>
+    <span class="cpill">📊 Fev–Out 2026</span>
+  </div>
+  <div class="cw" style="margin-top:10px"><canvas id="cBR"></canvas></div>
+</div>
+
+<!-- BRENT METER -->
+<div class="panel oil s4 clickable" onclick="openModal('brent')" style="display:flex;flex-direction:column;justify-content:center;position:relative">
+  <div class="pl">Referência Global</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <div class="pt" style="margin-bottom:0">🛢 Petróleo Brent</div>
+    <span class="cpill">📊 YoY</span>
+  </div>
+  <div class="om">
+    <div class="mr">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="48" fill="none" stroke="#1e2130" stroke-width="10"/>
+        <circle cx="60" cy="60" r="48" fill="none" stroke="url(#og)" stroke-width="10" stroke-dasharray="301.6" id="brentArc" stroke-dashoffset="75" stroke-linecap="round"/>
+        <defs><linearGradient id="og" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f5a623"/><stop offset="100%" stop-color="#ef4444"/></linearGradient></defs>
+      </svg>
+      <div class="mc"><div class="mv" id="brentVal">112</div><div class="mu">USD/bbl</div></div>
+    </div>
+    <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:7px" id="brentNote">Pico ~$126 em 30/abr · Mín. $73,74 em 24/jun<br>Volta a ~$112 com ataques em Ormuz (22/out)</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px">
+    <div style="background:#1a1d28;border-radius:8px;padding:8px;text-align:center">
+      <div style="font-size:9px;color:var(--muted)">01/fev/26</div>
+      <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--muted)" id="brentPrev">$72</div>
+    </div>
+    <div style="background:#1a1d28;border-radius:8px;padding:8px;text-align:center">
+      <div style="font-size:9px;color:var(--muted)">Δ período</div>
+      <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#ef4444" id="brentDelta">+55%</div>
+    </div>
+  </div>
+</div>
+
+<!-- CHART AR -->
+<div class="panel ar s6 clickable" onclick="openModal('ar')" style="position:relative">
+  <div class="pl">Evolução período</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+    <div class="pt" style="margin-bottom:0">🇦🇷 Gasoil Argentina (ARS/L)</div>
+    <span class="cpill">📊 YoY</span>
+  </div>
+  <div class="cw sm" style="margin-top:10px"><canvas id="cAR"></canvas></div>
+</div>
+
+<!-- CHART CL -->
+<div class="panel cl s6 clickable" onclick="openModal('cl')" style="position:relative">
+  <div class="pl">Evolução período</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+    <div class="pt" style="margin-bottom:0">🇨🇱 Diésel Chile (CLP/L)</div>
+    <span class="cpill">📊 YoY</span>
+  </div>
+  <div class="cw sm" style="margin-top:10px"><canvas id="cCL"></canvas></div>
+</div>
+
+<!-- DEP -->
+<div class="panel neu s4a">
+  <div class="pl">Análise Estrutural</div>
+  <div class="pt">⛽ Dependência Importada</div>
+  <div class="dep-row"><div class="dep-l">🇧🇷 BR</div><div class="dep-bg"><div class="dep-f" style="background:linear-gradient(90deg,var(--br),#f97316);width:26%;color:#000">diesel</div></div><div class="dep-pct" style="color:var(--br)">26%</div></div>
+  <div style="font-size:9px;color:var(--muted);margin:-7px 0 9px 80px">Exportador de cru, importa diesel refinado</div>
+  <div class="dep-row"><div class="dep-l">🇦🇷 AR</div><div class="dep-bg"><div class="dep-f" style="background:linear-gradient(90deg,var(--ar),#0284c7);width:35%;color:#000">refino</div></div><div class="dep-pct" style="color:var(--ar)">35%</div></div>
+  <div style="font-size:9px;color:var(--muted);margin:-7px 0 9px 80px">Vaca Muerta reduz dependência gradualmente</div>
+  <div class="dep-row"><div class="dep-l">🇨🇱 CL</div><div class="dep-bg"><div class="dep-f" style="background:linear-gradient(90deg,var(--cl),#a855f7);width:99%;color:#fff;font-size:9px">total</div></div><div class="dep-pct" style="color:var(--cl)">99%</div></div>
+  <div style="font-size:9px;color:var(--muted);margin:-7px 0 5px 80px">Máxima vulnerabilidade geopolítica</div>
+  <div style="margin-top:9px;padding:9px;background:#1a1d28;border-radius:8px;font-size:10px;color:var(--muted);line-height:1.5">🇨🇱 Chile: diesel +$91,5/L em 22/out (subsídio ~$200/L). 🇧🇷 Subvenção ao importado R$3,52/L cobre a defasagem. 🇦🇷 YPF reajusta em degraus (buffer). Período: 01/fev–22/out/2026.</div>
+</div>
+
+<!-- CAUSAS -->
+<div class="panel oil s4a" style="position:relative">
+  <div class="pl">Diagnóstico · 01/fev–22/out/2026</div>
+  <div class="pt">🔍 Causas do Aumento</div>
+  <div id="causesContent">
+    <div class="ci"><div class="cn">1</div><div class="ct"><strong>Ormuz volta ao centro (out/26)</strong><br>Ataques a petroleiros e minas navais no Estreito. Brent $111,77 em 22/out — maior nível desde maio. Pico do período ~$126 (30/abr). Frete marítimo do petróleo &gt; US$20/bbl.</div></div>
+    <div class="ci"><div class="cn">2</div><div class="ct"><strong>Brasil: subvenção quase igual à defasagem</strong><br>Defasagem Petrobras R$3,50/L (Abicom, Brent $111) vs subvenção ao importado R$3,52/L (desde 13/out). Parcela extra R$1,40 + R$2,12 vale até 12/nov (prorrogável).</div></div>
+    <div class="ci"><div class="cn">3</div><div class="ct"><strong>Diesel S10 BR: R$7,34 (ANP 11–17/out)</strong><br>4ª semana estável, +5,3% desde 1ª semana de set (R$6,97). Acre R$8,21 (máx.) · ES R$6,84 (mín.). Frete rodoviário +13,1% no 3º tri.</div></div>
+    <div class="ci"><div class="cn">4</div><div class="ct"><strong>Chile: nova alta em 22/out</strong><br>ENAP: diesel +$91,5/L (5ª alta consecutiva dos combustíveis). Em 9/jul houve queda de $155,4/L. Governo subsidia ~$200/L do diesel.</div></div>
+    <div class="ci"><div class="cn">5</div><div class="ct"><strong>Argentina: reajustes em degraus</strong><br>Shell/Axion/Puma +2–5% (24/set); YPF +1% (26/set, 1º desde maio) dentro do "buffer". Gasoil comum lidera a alta de outubro (~+4%). YPF CABA premium ARS$2.469.</div></div>
+  </div>
+</div>
+
+<!-- PROJEÇÃO -->
+<div class="panel neu s4a" style="position:relative">
+  <div class="pl">Inteligência de Mercado · Out/2026</div>
+  <div class="pt">📊 Projeção <span id="projPeriod">Próximos Meses</span></div>
+  <div id="projContent">
+    <table class="ptbl">
+      <thead><tr><th>Mês</th><th>Brent</th><th>BR Diesel</th><th>Cenário</th></tr></thead>
+      <tbody id="projRows">
+        <tr><td>Out/26</td><td style="color:#ef4444">$105–115</td><td style="color:#ef4444">R$7,30–7,40</td><td><span class="stag tb">VOLÁTIL</span></td></tr>
+        <tr><td>Nov/26</td><td style="color:#ef4444">$100–120</td><td style="color:#ef4444">R$7,30–7,70</td><td><span class="stag tb">RISCO</span></td></tr>
+        <tr><td>Dez/26</td><td style="color:#fbbf24">$95–120</td><td style="color:#fbbf24">R$7,20–7,80</td><td><span class="stag tm">INCERTO</span></td></tr>
+        <tr><td>Jan/27</td><td style="color:#fbbf24">$85–115</td><td style="color:#fbbf24">R$7,00–7,70</td><td><span class="stag tm">INCERTO</span></td></tr>
+      </tbody></tbody>
+    </table>
+    <div style="margin-top:9px;font-size:10px;color:var(--muted);line-height:1.6" id="projNote">
+      ⚡ <span style="color:#f87171">Bull:</span> escalada em Ormuz → Brent $120+<br>
+      📉 <span style="color:#4ade80">Bear:</span> avanço diplomático → Brent $90–95<br>
+      🔄 <span style="color:#fbbf24">BR:</span> subvenção extra vence 12/nov (prorrogável) · cenários ilustrativos
+    </div>
+  </div>
+</div>
+
+<!-- COMPARATIVO -->
+<div class="panel neu s12 clickable" style="--ac:var(--muted);position:relative" onclick="openModal('comp')">
+  <div class="pl">Comparativo Regional — clique para análise — Período: 01/fev a 22/out/2026</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+    <div class="pt" style="margin-bottom:0">🌎 Variação % — Diesel/Gasoil nos 3 Países vs Brent (fev–out/26)</div>
+    <span class="cpill">📊 Comparar</span>
+  </div>
+  <div class="cw tall" style="margin-top:10px"><canvas id="cComp"></canvas></div>
+</div>
+
+<!-- NEWS PANEL -->
+<div class="panel neu news-panel" style="position:relative">
+  <div class="pl">Inteligência de Mercado — Atualizado 22/out/2026</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div class="pt" style="margin-bottom:0">📰 Notícias & Alertas de Combustíveis</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:10px;color:var(--muted)" id="newsTimestamp">22/10/2026</span>
+      <button onclick="fetchNews()" style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);padding:4px 11px;border-radius:8px;cursor:pointer;font-size:10px;font-family:'DM Mono',monospace;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.08)'" onmouseout="this.style.background='rgba(255,255,255,.04)'">↻ Buscar</button>
+    </div>
+  </div>
+  <div class="news-grid" id="newsGrid">
+    <div class="news-card" style="--nc:#ff6b35">
+      <div class="news-time"><span class="news-dot"></span>22/out</div>
+      <span class="news-tag">🛢 PETRÓLEO</span>
+      <div class="news-headline">Brent sobe a US$111,77 — maior nível em ~5 meses — com ataques a petroleiros em Ormuz</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px">Brent fechou a US$108,79 em 20/out e subiu +2,7% em 22/out. Irã intensificou ataques a embarcações no Estreito; estoques de crude dos EUA caíram 3,1 mi bbl (sem. 16/out). Frete marítimo do petróleo acima de US$20/bbl (Goldman Sachs).</div>
+      <div class="news-src">📰 Investing.com / Eixos / SpaceMoney</div>
+    </div>
+    <div class="news-card" style="--nc:#e84393">
+      <div class="news-time"><span class="news-dot"></span>21/out</div>
+      <span class="news-tag">🇨🇱 CHILE</span>
+      <div class="news-headline">ENAP: diesel sobe $91,5/L e gasolinas $41,3/L desde 22/out — 5ª alta consecutiva</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px">Preço médio nacional do diesel em CLP$1.498 e RM em CLP$1.463 antes do reajuste (CNE, 20/out). Ministro da Fazenda: governo segue subsidiando o diesel em ~$200/L. Fenabus declara "estado de alerta".</div>
+      <div class="news-src">📰 ENAP / CNE / El Dínamo</div>
+    </div>
+    <div class="news-card" style="--nc:#f5a623">
+      <div class="news-time"><span class="news-dot"></span>21/out</div>
+      <span class="news-tag">🇧🇷 BRASIL</span>
+      <div class="news-headline">Diesel S10 estável em R$7,34 (ANP); defasagem da Petrobras (R$3,50) encosta na subvenção (R$3,52)</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px">S10 R$7,34 (11–17/out) vs R$7,36 na semana anterior; S500 R$7,00. Extremos estaduais: Acre R$8,21 e Espírito Santo R$6,84. Parcela extra R$1,40 + R$2,12 de subvenção vale até 12/nov, prorrogável.</div>
+      <div class="news-src">📰 Eixos / ANP / Abicom</div>
+    </div>
+    <div class="news-card" style="--nc:#f5a623">
+      <div class="news-time"><span class="news-dot"></span>21/out</div>
+      <span class="news-tag">🇧🇷 FRETE</span>
+      <div class="news-headline">Frete rodoviário sobe 13,1% no 3º tri com diesel caro e safra</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px">Índice Frete.com de Preços (IFP) aponta alta de 13,1% no terceiro trimestre vs 2025. EPE projeta consumo de diesel de 72,4 bi L em 2026 (+2,4%).</div>
+      <div class="news-src">📰 Valor Econômico / EPE</div>
+    </div>
+    <div class="news-card" style="--nc:#4fc3f7">
+      <div class="news-time"><span class="news-dot"></span>20/out</div>
+      <span class="news-tag">🇦🇷 ARGENTINA</span>
+      <div class="news-headline">YPF CABA: gasoil ARS$2.249 e Infinia Diésel ARS$2.469; gasoil lidera alta de outubro</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px">Shell, Axion e Puma subiram 2–5% em 24/set; YPF (55% do varejo) +1% em 26/set, 1º aumento desde maio, dentro do programa de amortização ("buffer"). Em 16/out o cadastro oficial mostrava ARS$2.195 / ARS$2.379.</div>
+      <div class="news-src">📰 La Nación / Infobae / El Destape</div>
+    </div>
+    <div class="news-card" style="--nc:#ff6b35">
+      <div class="news-time"><span class="news-dot"></span>24/jun</div>
+      <span class="news-tag">⚡ MARCO</span>
+      <div class="news-headline">Brent cai a US$73,74 (24/jun), menor fechamento desde 28/fev, com petroleiros cruzando Ormuz</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px">Antes: pico de ~US$126 em 30/abr; cessar-fogo em 8/abr derrubou o Brent 13% num dia. Depois: rali de set–out até US$111. ENAP chegou a cortar o diesel em $155,4/L em 9/jul.</div>
+      <div class="news-src">📰 Reuters / CNBC / ENAP</div>
+    </div>
+  </div>
+</div>
+
+<!-- UPDATE BAR -->
+<div class="update-bar">
+  <div class="sources">
+    <span>Fontes:</span>
+    <span class="src-tag">ANP/Brasil</span>
+    <span class="src-tag">ENAP/Chile</span>
+    <span class="src-tag">Infobae/Argentina</span>
+    <span class="src-tag">TradingEconomics</span>
+    <span class="src-tag">EIA/API</span>
+    <span class="src-tag">CNE/Chile</span>
+    <span class="src-tag">Período: 01/fev–22/out/2026</span>
+  </div>
+  <div class="next-update">
+    <span>Próxima atualização em:</span>
+    <span class="countdown" id="countdownTimer">04:00:00</span>
+    <span style="color:var(--muted)" id="lastUpdateTime">Atualizado 22/10/2026</span>
+  </div>
+</div>
+
+</main>
+</div>
+<!-- ══ FIM TAB DASHBOARD ══ -->
+
+
+<!-- ══════════════ TAB MAPA ══════════════ -->
+<div id="tab-mapa" class="tab-page">
+<div class="map-page">
+
+  <!-- Controls -->
+  <div class="map-controls">
+    <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;margin-right:8px">🗺 Mapa Regional de Preços</div>
+    <button class="country-tab active-br" onclick="selectCountry('BR',this)">🇧🇷 Brasil · Diesel S10</button>
+    <button class="country-tab" onclick="selectCountry('AR',this)">🇦🇷 Argentina · Gasoil</button>
+    <button class="country-tab" onclick="selectCountry('CL',this)">🇨🇱 Chile · Diésel</button>
+    <div style="margin-left:auto;font-size:10px;color:var(--muted)">📅 Período: 01/fev–22/out/2026 · Clique em uma região para detalhes</div>
+  </div>
+
+  <div class="map-layout">
+    <!-- Map Container -->
+    <div class="map-container" id="mapContainer">
+      <div class="map-title" id="mapTitle">🇧🇷 Brasil — Diesel S10 por Região</div>
+      <div class="map-subtitle" id="mapSubtitle">Preços médios ANP · R$/L · Período: 01/fev–22/out/2026</div>
+      <div id="mapSvgContainer" style="position:relative"></div>
+      <div class="map-tooltip" id="mapTooltip"></div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="map-sidebar">
+
+      <!-- Legend -->
+      <div class="map-legend-card">
+        <div class="legend-title">⬛ Escala de Preços</div>
+        <div class="legend-bar" id="legendBar"></div>
+        <div class="legend-labels" id="legendLabels">
+          <span>Mais barato</span><span>Médio</span><span>Mais caro</span>
+        </div>
+        <div style="margin-top:8px;font-size:10px;color:var(--muted)" id="legendRange"></div>
+      </div>
+
+      <!-- Period summary -->
+      <div class="period-info">
+        <div class="legend-title">📅 Período de Apuração</div>
+        <div class="period-row">
+          <span class="period-label">Início</span>
+          <span class="period-val" id="pStart">01/fev/2026</span>
+        </div>
+        <div class="period-row">
+          <span class="period-label">Fim</span>
+          <span class="period-val">22/out/2026</span>
+        </div>
+        <div class="period-row">
+          <span class="period-label">Variação período</span>
+          <span class="period-val" id="pChange" style="color:#ef4444">+20,5%</span>
+        </div>
+        <div class="period-row">
+          <span class="period-label">Preço inicial</span>
+          <span class="period-val" id="pFrom">R$ 6,09</span>
+        </div>
+        <div class="period-row">
+          <span class="period-label">Preço atual</span>
+          <span class="period-val" id="pTo">R$ 7,34</span>
+        </div>
+      </div>
+
+      <!-- Postos parceiros (AR) -->
+      <div class="posto-card" id="postoCard" style="display:none">
+        <div class="posto-title">⭐ Postos Monitorados</div>
+        <div id="postoList"></div>
+      </div>
+
+      <!-- Region list -->
+      <div class="map-legend-card">
+        <div class="legend-title">📍 Regiões / Províncias</div>
+        <div class="region-list" id="regionList"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</div>
+<!-- ══ FIM TAB MAPA ══ -->
+
+
+<!-- MODAL -->
+<div class="moverlay" id="mOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="mhdr">
+      <div class="mhdr-l">
+        <div class="mflag" id="mFlag">🇧🇷</div>
+        <div><div class="mhtitle" id="mTitle"></div><div class="mhsub" id="mSub"></div></div>
+      </div>
+      <button class="mclose" onclick="closeModal()">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="mkpi-row" id="mKpis"></div>
+      <div class="mtabs">
+        <button class="mtab active" onclick="switchTab(this,'tp-chart')">📈 Evolução Período</button>
+        <button class="mtab" onclick="switchTab(this,'tp-timeline')">🗓 Linha do Tempo</button>
+        <button class="mtab" onclick="switchTab(this,'tp-context')">🌐 Estrutura & Projeção</button>
+      </div>
+      <div class="tpanel active" id="tp-chart">
+        <div class="mst" id="mChartTitle">📊 Evolução · fev–out/2026</div>
+        <div class="mcw"><canvas id="mChart"></canvas></div>
+        <div id="mNote" style="font-size:10px;color:var(--muted);margin-top:11px;line-height:1.6;padding:11px;background:#0f1117;border-radius:8px"></div>
+      </div>
+      <div class="tpanel" id="tp-timeline">
+        <div class="mst">🗓 Eventos que Impactaram os Preços</div>
+        <div class="tline" id="mTimeline"></div>
+      </div>
+      <div class="tpanel" id="tp-context">
+        <div id="mContext"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>Fuel Watch v3.0 · Dados: ANP · ENAP · CNE · Infobae · La Nación · TradingEconomics · Reuters · EIA — Período 01/fev–22/out/2026</span>
+  <span id="footerDate">Atualizado: 22/10/2026</span>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+const UPDATE_INTERVAL_MS = 4 * 60 * 60 * 1000;
+const NEWS_INTERVAL_MS   = 2 * 60 * 60 * 1000;
+const API_URL = 'https://api.anthropic.com/v1/messages';
+const MODEL   = 'claude-sonnet-4-20250514';
+
+let cache = { prices: null, news: null, pricesAt: 0, newsAt: 0, charts: {}, modalData: {} };
+let countdownInterval = null;
+let nextUpdateAt = 0;
+
+Chart.defaults.color = '#6b7280';
+Chart.defaults.borderColor = '#1e2130';
+Chart.defaults.font.family = "'DM Mono',monospace";
+Chart.defaults.font.size = 11;
+
+// Labels: 01/fev a 22/out (período completo)
+const L_PERIOD = ['01/fev','08/fev','15/fev','22/fev','01/mar','08/mar','15/mar','22/mar','01/abr','06/abr','17/abr','19/mai','19/jun','17/jul','27/ago','02/set','25/set','09/out','16/out','22/out'];
+
+function mkGrad(ctx,h,hex,a1,a2){
+  const g=ctx.createLinearGradient(0,0,0,h);
+  const r=parseInt(hex.slice(1,3),16),gr=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  g.addColorStop(0,`rgba(${r},${gr},${b},${a1})`);
+  g.addColorStop(1,`rgba(${r},${gr},${b},${a2})`);
+  return g;
+}
+
+// ═══════════════════════════════════════════════
+// DADOS — Período 01/fev a 22/out/2026
+// ═══════════════════════════════════════════════
+const STATIC_DATA = {
+  // Diesel S10 BR (R$/L) — ANP. Pontos a partir de 17/abr: média abr/jun (INEEP/ANP) e semanas ANP (10–16/mai, 12–18/jul, 23–29/ago, 30/ago–05/set, 20–26/set, 04–10/out, 11–17/out; 22/out = última semana ANP)
+  d10_br: [6.09, 6.10, 6.11, 6.09, 6.15, 6.30, 6.70, 7.35, 7.57, 7.57, 7.45, 7.20, 7.13, 6.94, 6.88, 6.88, 7.33, 7.36, 7.34, 7.34],
+  // Gasoil AR (ARS/L) — CABA YPF premium. null = sem cotação confiável no ponto (linha tracejada)
+  d10_ar: [1620, 1630, 1635, 1640, 1660, 1700, 1780, 1950, 2000, 2050, null, null, null, null, null, null, null, null, 2379, 2469],
+  // Diesel CL (CLP/L) — RM. 17/abr: média RM (Autofact); 16/out e 22/out: média RM (CNE/Bencina en Línea)
+  d10_cl: [975, 978, 980, 982, 985, 995, 1030, 1080, 1512, 1512, 1498, null, null, null, null, null, null, null, 1462, 1463],
+  // Brent (USD/bbl) — futuros ICE (fechamentos); 17/jul aproximado
+  b_abs:  [72, 74, 76, 78, 83, 94, 108, 117, 100, 100, 90.4, 111.3, 80.6, 85, 88.5, 95.6, 98.8, 104.7, 109.9, 111.8],
+  // Variação % acumulada vs 01/fev
+  comp_brent: [0, 3, 6, 8, 15, 30, 50, 62, 39, 39, 25.5, 54.6, 11.9, 18.1, 22.9, 32.8, 37.2, 45.4, 52.6, 55.2],
+  comp_br:    [0, 0.2, 0.3, 0, 1.0, 3.5, 10.0, 20.7, 24.3, 24.3, 22.3, 18.2, 17.1, 14.0, 13.0, 13.0, 20.4, 20.9, 20.5, 20.5],
+  comp_ar:    [0, 0.6, 0.9, 1.2, 2.5, 4.9, 9.9, 20.4, 23.5, 26.5, null, null, null, null, null, null, null, null, 46.9, 52.4],
+  comp_cl:    [0, 0.3, 0.5, 0.7, 1.0, 2.1, 5.6, 10.8, 55.1, 55.1, 53.6, null, null, null, null, null, null, null, 49.9, 50.1],
+};
+
+// ═══════════════════════════════════════════════
+// DADOS DO MAPA REGIONAL — atualizado 22/out/2026
+// BR: média simples dos estados por região (ANP, sem. 11–17/out) · CL: CNE/Bencina en Línea (20/out)
+// AR: estimativa — estrutura regional de abr/26 reescalada pela variação do YPF CABA (+20,4%)
+// ═══════════════════════════════════════════════
+const MAP_DATA = {
+  BR: {
+    title: '🇧🇷 Brasil — Diesel S10 por Região',
+    subtitle: 'Preços médios ANP · R$/L · Período: 01/fev–22/out/2026',
+    unit: 'R$/L',
+    pStart: '01/fev/2026',
+    pChange: '+20,5%',
+    pFrom: 'R$ 6,09',
+    pTo: 'R$ 7,34',
+    legendMin: 'R$ 6,84',
+    legendMax: 'R$ 8,21',
+    postos: null,
+    regions: [
+      { id:'norte', name:'Norte', price: 7.54, sub:'AM, PA, RO, AC, RR, AP, TO', detail:'Acre: R$8,21 (máx. nacional) · Pará: R$7,53 · Amazonas: R$7,32', change:'+24%' },
+      { id:'nordeste', name:'Nordeste', price: 7.42, sub:'BA, PE, CE, MA, PI, RN, PB, SE, AL', detail:'Piauí: R$7,76 · Bahia: R$7,60 · Ceará: R$7,30', change:'+22%' },
+      { id:'centro-oeste', name:'Centro-Oeste', price: 7.45, sub:'GO, MT, MS, DF', detail:'Mato Grosso: R$7,67 · Distrito Federal: R$7,44 · Goiás: R$7,35', change:'+22%' },
+      { id:'sudeste', name:'Sudeste', price: 7.09, sub:'SP, RJ, MG, ES', detail:'ES: R$6,84 (mín. nacional) · MG: R$7,04 · RJ: R$7,13 · SP: R$7,33', change:'+15%' },
+      { id:'sul', name:'Sul', price: 7.31, sub:'RS, SC, PR', detail:'Paraná: R$7,40 · SC: R$7,28 · RS: R$7,24 · Faixa nacional por posto: R$5,89–R$9,99', change:'+19%' },
+    ]
+  },
+  AR: {
+    title: '🇦🇷 Argentina — Gasoil (Diesel) por Região',
+    subtitle: 'YPF Infinia Diésel · ARS/L · Período: 01/fev–22/out/2026 · valores regionais estimados',
+    unit: 'ARS/L',
+    pStart: '01/fev/2026',
+    pChange: '+52,4%',
+    pFrom: 'ARS$ 1.620',
+    pTo: 'ARS$ 2.469',
+    legendMin: 'ARS$ 2.349',
+    legendMax: 'ARS$ 2.589',
+    postos: [
+      { name:'Posto Garramuño', loc:'Paso de Los Libres · Corrientes', price:'ARS$ ~2.529 (est.)', note:'Gasoil Premium · estimativa: preço de abr/26 (ARS$2.100) reescalado pela alta do YPF CABA', flag:'🇦🇷' },
+      { name:'Posto Eloy Guerrero', loc:'Mendoza · Cuyo', price:'ARS$ ~2.349 (est.)', note:'Gasoil YPF · estimativa: preço de abr/26 (ARS$1.950) reescalado · Mendoza segue entre os mais baratos', flag:'🇦🇷' },
+    ],
+    regions: [
+      { id:'buenos-aires', name:'Buenos Aires + CABA', price: 2469, sub:'CABA, Gran Buenos Aires, Provincia BA', detail:'CABA YPF Infinia Diésel: ARS$2.469 · Diésel 500: ARS$2.249 (La Nación, 20/out) · Cadastro oficial 16/out: ARS$2.379 / 2.195', change:'+52%' },
+      { id:'cuyo', name:'Cuyo', price: 2349, sub:'Mendoza, San Juan, San Luis, La Rioja', detail:'Mendoza (est.): ~ARS$2.349 · Entre os mais baratos do país', change:'+45%' },
+      { id:'litoral', name:'Litoral / NEA', price: 2529, sub:'Corrientes, Misiones, Entre Ríos, Santa Fe, Chaco, Formosa', detail:'Corrientes / Paso de Los Libres (est.): ~ARS$2.529', change:'+57%' },
+      { id:'noa', name:'NOA', price: 2505, sub:'Salta, Jujuy, Tucumán, Santiago del Estero', detail:'Salta (est.): ~ARS$2.505 · entre os mais caros', change:'+54%' },
+      { id:'patagonia', name:'Patagônia', price: 2589, sub:'Neuquén, Río Negro, Chubut, Santa Cruz, TdF', detail:'Río Gallegos YPF (21/out): Diésel 500 ARS$2.452 · Infinia Diésel ARS$2.611 · demais (est.)', change:'+51%' },
+      { id:'pampeana', name:'Pampeana / Centro', price: 2433, sub:'Córdoba, La Pampa, San Luis', detail:'Córdoba (est.): ~ARS$2.433', change:'+49%' },
+    ]
+  },
+  CL: {
+    title: '🇨🇱 Chile — Diésel por Região',
+    subtitle: 'CNE / Bencina en Línea · CLP/L · Período: 01/fev–22/out/2026 · antes do reajuste ENAP de 22/out',
+    unit: 'CLP/L',
+    pStart: '01/fev/2026',
+    pChange: '+50,1%',
+    pFrom: 'CLP$ 975',
+    pTo: 'CLP$ 1.463',
+    legendMin: 'CLP$ 1.463',
+    legendMax: 'CLP$ 1.648',
+    postos: [
+      { name:'Rede COPEC', loc:'Todo o Chile — maior rede do país', price:'CLP$ 1.463', note:'Média RM (CNE, 20/out) · menores diesel em Santiago ~CLP$1.375 (Copec, 1–9/out) · ENAP +$91,5/L desde 22/out', flag:'🇨🇱' },
+      { name:'Shell Chile', loc:'Principais cidades e rodovias', price:'CLP$ 1.463', note:'Sem cotação individual — preço alinhado à média RM · média nacional do diesel: CLP$1.498', flag:'🇨🇱' },
+    ],
+    regions: [
+      { id:'rm', name:'Região Metropolitana', price: 1463, sub:'Santiago e Grande Santiago', detail:'Média RM: CLP$1.463 (CNE) · Valparaíso: CLP$1.490', change:'+50%' },
+      { id:'norte', name:'Norte Grande / Médio', price: 1540, sub:'Regiões I (Tarapacá) a IV (Coquimbo)', detail:'Antofagasta: CLP$1.557 · Atacama: CLP$1.558 · Arica: CLP$1.546 · Coquimbo: CLP$1.538 · Tarapacá: CLP$1.500', change:'+56%' },
+      { id:'ohiggins', name:'O\'Higgins / Maule', price: 1498, sub:'Regiões VI e VII', detail:'O\'Higgins: CLP$1.511 · Maule: CLP$1.484', change:'+53%' },
+      { id:'bio-bio', name:'Biobío / Ñuble', price: 1476, sub:'Regiões VIII e XVI', detail:'Biobío: CLP$1.476 · Ñuble: CLP$1.476', change:'+51%' },
+      { id:'araucania', name:'La Araucanía / Los Ríos / Los Lagos', price: 1528, sub:'Regiões IX, XIV, X', detail:'Araucanía: CLP$1.501 · Los Ríos: CLP$1.533 · Los Lagos: CLP$1.551', change:'+56%' },
+      { id:'austral', name:'Aysén / Magallanes', price: 1648, sub:'Regiões XI e XII — mais isoladas', detail:'Aysén: CLP$1.658 · Magallanes: CLP$1.638 · Mais caras do país', change:'+65%' },
+    ]
+  }
+};
+
+// ═══════════════════════════════════════════════
+// RENDER CHARTS
+// ═══════════════════════════════════════════════
+function renderCharts() {
+  updateChartPeriod('cBR', STATIC_DATA.d10_br, '#f5a623', 'R$/L', 'R$', 195);
+  updateChartPeriod('cAR', STATIC_DATA.d10_ar, '#4fc3f7', 'ARS/L', 'ARS$', 165);
+  updateChartPeriod('cCL', STATIC_DATA.d10_cl, '#e84393', 'CLP/L', 'CLP$', 165);
+  renderCompChart();
+}
+
+function updateChartPeriod(id, data, color, unit, sym, h) {
+  if (cache.charts[id]) cache.charts[id].destroy();
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const g = mkGrad(ctx, h, color, .32, 0);
+  cache.charts[id] = new Chart(ctx, {
+    type:'line',
+    data:{ labels: L_PERIOD, datasets:[{ label:unit, data, borderColor:color, backgroundColor:g, borderWidth:2.5, pointRadius:2, pointHoverRadius:5, tension:.35, fill:true, spanGaps:true, segment:{ borderDash: c => (c.p1DataIndex - c.p0DataIndex > 1) ? [5,4] : undefined } }]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#111318', borderColor:color, borderWidth:1, callbacks:{ label:c=> c.raw==null ? ' sem dado' : ` ${sym}${c.raw.toLocaleString('pt-BR')}` }}},
+      scales:{ x:{grid:{color:'#1e2130'}}, y:{grid:{color:'#1e2130'}} }
+    }
+  });
+}
+
+function renderCompChart() {
+  if (cache.charts['cComp']) cache.charts['cComp'].destroy();
+  const ctx = document.getElementById('cComp').getContext('2d');
+  cache.charts['cComp'] = new Chart(ctx,{
+    type:'line',
+    data:{labels:L_PERIOD,datasets:[
+      {label:'🛢 Brent (%)',data:STATIC_DATA.comp_brent,spanGaps:true,segment:{borderDash:c=>(c.p1DataIndex-c.p0DataIndex>1)?[5,4]:undefined},borderColor:'#ff6b35',backgroundColor:'rgba(255,107,53,.08)',borderWidth:3,pointRadius:3,tension:.3,fill:true,yAxisID:'y1'},
+      {label:'🇧🇷 Diesel BR (%)',data:STATIC_DATA.comp_br,spanGaps:true,segment:{borderDash:c=>(c.p1DataIndex-c.p0DataIndex>1)?[5,4]:undefined},borderColor:'#f5a623',borderWidth:2.5,pointRadius:3,tension:.3,backgroundColor:'transparent'},
+      {label:'🇦🇷 Gasoil AR (%)',data:STATIC_DATA.comp_ar,spanGaps:true,segment:{borderDash:c=>(c.p1DataIndex-c.p0DataIndex>1)?[5,4]:undefined},borderColor:'#4fc3f7',borderWidth:2.5,pointRadius:3,tension:.3,backgroundColor:'transparent'},
+      {label:'🇨🇱 Diésel CL (%)',data:STATIC_DATA.comp_cl,spanGaps:true,segment:{borderDash:c=>(c.p1DataIndex-c.p0DataIndex>1)?[5,4]:undefined},borderColor:'#e84393',borderWidth:2.5,pointRadius:3,tension:.3,backgroundColor:'transparent'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{position:'top',labels:{usePointStyle:true,padding:16,color:'#9ca3af'}},
+        tooltip:{backgroundColor:'#111318',borderColor:'#1e2130',borderWidth:1,callbacks:{label:c=>c.raw==null?` ${c.dataset.label}: sem dado`:` ${c.dataset.label}: ${c.raw>0?'+':''}${c.raw.toFixed(1)}%`}}},
+      scales:{x:{grid:{color:'#1e2130'}},
+        y:{grid:{color:'#1e2130'},ticks:{callback:v=>v+'%'},title:{display:true,text:'Variação acumulada (%)',color:'#6b7280'}},
+        y1:{position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>v+'%',color:'#ff6b35'},title:{display:true,text:'Brent (%)',color:'#ff6b35'}}
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// TAB NAVIGATION
+// ═══════════════════════════════════════════════
+function switchMainTab(btn, tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+// MAPA REGIONAL
+// ═══════════════════════════════════════════════
+let currentCountry = 'BR';
+let selectedRegion = null;
+
+const countryColors = { BR: '#f5a623', AR: '#4fc3f7', CL: '#e84393' };
+
+function priceToColor(price, min, max, country) {
+  const t = Math.min(Math.max((price - min) / (max - min), 0), 1);
+  // green -> yellow -> red gradient
+  const r = Math.round(t < 0.5 ? (t * 2 * (255 - 34) + 34) : 255);
+  const g = Math.round(t < 0.5 ? (197 - t * 2 * (197 - 158)) : Math.round(158 - (t - 0.5) * 2 * 158));
+  const b = Math.round(t < 0.5 ? 94 - t * 2 * 94 : 0);
+  return `rgb(${r},${g},${b})`;
+}
+
+const BR_SVG = `<svg viewBox="0 0 400 380" class="svg-map" id="svgMap">
+  <g id="mapRegions">
+    <!-- Norte -->
+    <path class="region-path" data-region="norte" d="M80,20 L200,20 L220,60 L210,100 L180,120 L150,115 L120,125 L90,110 L70,80 Z" fill="${getRegionColor('BR','norte')}" title="Norte"/>
+    <!-- Nordeste -->
+    <path class="region-path" data-region="nordeste" d="M200,20 L310,30 L330,70 L310,110 L280,130 L250,125 L220,110 L210,100 L220,60 Z" fill="${getRegionColor('BR','nordeste')}" title="Nordeste"/>
+    <!-- Centro-Oeste -->
+    <path class="region-path" data-region="centro-oeste" d="M90,110 L120,125 L150,115 L180,120 L210,100 L220,110 L230,150 L220,190 L200,210 L170,220 L140,210 L110,195 L90,170 L80,140 Z" fill="${getRegionColor('BR','centro-oeste')}" title="Centro-Oeste"/>
+    <!-- Sudeste -->
+    <path class="region-path" data-region="sudeste" d="M220,110 L250,125 L280,130 L300,150 L290,180 L270,200 L250,210 L230,200 L220,190 L230,150 Z" fill="${getRegionColor('BR','sudeste')}" title="Sudeste"/>
+    <!-- Sul -->
+    <path class="region-path" data-region="sul" d="M170,220 L200,210 L220,190 L230,200 L250,210 L260,240 L240,270 L210,280 L180,270 L160,250 L155,230 Z" fill="${getRegionColor('BR','sul')}" title="Sul"/>
+  </g>
+  <!-- Labels -->
+  <text x="140" y="75" fill="#fff" font-size="11" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Norte</text>
+  <text x="260" y="80" fill="#fff" font-size="10" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Nordeste</text>
+  <text x="160" y="165" fill="#fff" font-size="10" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Centro-Oeste</text>
+  <text x="255" y="165" fill="#fff" font-size="10" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Sudeste</text>
+  <text x="207" y="250" fill="#fff" font-size="11" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Sul</text>
+</svg>`;
+
+const AR_SVG = `<svg viewBox="0 0 300 500" class="svg-map" id="svgMap">
+  <g id="mapRegions">
+    <!-- NOA -->
+    <path class="region-path" data-region="noa" d="M60,20 L150,20 L160,40 L155,80 L140,100 L110,110 L80,100 L65,75 L55,45 Z" fill="${getRegionColor('AR','noa')}" title="NOA"/>
+    <!-- Litoral/NEA -->
+    <path class="region-path" data-region="litoral" d="M150,20 L240,25 L250,65 L235,105 L210,115 L185,110 L160,95 L155,80 L160,40 Z" fill="${getRegionColor('AR','litoral')}" title="Litoral/NEA"/>
+    <!-- Pampeana -->
+    <path class="region-path" data-region="pampeana" d="M80,100 L110,110 L140,100 L155,80 L160,95 L185,110 L190,150 L185,180 L165,195 L140,200 L115,190 L95,175 L75,155 Z" fill="${getRegionColor('AR','pampeana')}" title="Pampeana"/>
+    <!-- Cuyo -->
+    <path class="region-path" data-region="cuyo" d="M55,45 L65,75 L80,100 L75,155 L55,170 L40,155 L35,120 L40,80 Z" fill="${getRegionColor('AR','cuyo')}" title="Cuyo"/>
+    <!-- Buenos Aires -->
+    <path class="region-path" data-region="buenos-aires" d="M115,190 L140,200 L165,195 L185,180 L200,195 L200,230 L185,245 L160,250 L135,240 L115,225 L105,205 Z" fill="${getRegionColor('AR','buenos-aires')}" title="Buenos Aires"/>
+    <!-- Patagônia -->
+    <path class="region-path" data-region="patagonia" d="M40,155 L55,170 L75,155 L95,175 L105,205 L115,225 L100,255 L90,290 L75,330 L55,360 L40,380 L25,360 L20,320 L25,280 L30,230 L30,190 Z" fill="${getRegionColor('AR','patagonia')}" title="Patagônia"/>
+  </g>
+  <text x="105" y="68" fill="#fff" font-size="10" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">NOA</text>
+  <text x="197" y="70" fill="#fff" font-size="9" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">NEA/Litoral</text>
+  <text x="135" y="155" fill="#fff" font-size="9" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Pampeana</text>
+  <text x="47" y="112" fill="#fff" font-size="9" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Cuyo</text>
+  <text x="155" y="222" fill="#fff" font-size="9" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Buenos Aires</text>
+  <text x="62" y="280" fill="#fff" font-size="9" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Patagônia</text>
+</svg>`;
+
+const CL_SVG = `<svg viewBox="0 0 160 560" class="svg-map" id="svgMap">
+  <g id="mapRegions">
+    <!-- Norte Grande e Médio -->
+    <path class="region-path" data-region="norte" d="M40,10 L110,10 L115,20 L112,80 L108,130 L100,160 L85,170 L70,165 L55,155 L45,130 L38,80 L35,30 Z" fill="${getRegionColor('CL','norte')}" title="Norte"/>
+    <!-- RM -->
+    <path class="region-path" data-region="rm" d="M55,155 L70,165 L85,170 L100,160 L105,180 L100,195 L85,200 L68,197 L55,188 L50,172 Z" fill="${getRegionColor('CL','rm')}" title="RM"/>
+    <!-- O'Higgins / Maule -->
+    <path class="region-path" data-region="ohiggins" d="M50,172 L55,188 L68,197 L85,200 L100,195 L105,220 L100,245 L85,252 L68,248 L52,238 L45,220 L45,200 Z" fill="${getRegionColor('CL','ohiggins')}" title="O'Higgins/Maule"/>
+    <!-- Biobío / Ñuble -->
+    <path class="region-path" data-region="bio-bio" d="M45,220 L52,238 L68,248 L85,252 L100,245 L105,270 L98,290 L80,298 L62,292 L48,278 L42,258 Z" fill="${getRegionColor('CL','bio-bio')}" title="Biobío/Ñuble"/>
+    <!-- Araucanía / Los Ríos / Los Lagos -->
+    <path class="region-path" data-region="araucania" d="M42,258 L48,278 L62,292 L80,298 L98,290 L102,325 L92,355 L75,362 L55,352 L40,338 L35,310 L36,278 Z" fill="${getRegionColor('CL','araucania')}" title="Araucanía/Los Ríos/Los Lagos"/>
+    <!-- Aysén / Magallanes -->
+    <path class="region-path" data-region="austral" d="M35,310 L40,338 L55,352 L75,362 L92,355 L95,390 L82,430 L65,460 L45,480 L30,475 L20,450 L18,410 L20,370 L25,340 Z" fill="${getRegionColor('CL','austral')}" title="Aysén/Magallanes"/>
+  </g>
+  <text x="75" y="90" fill="#fff" font-size="9" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Norte</text>
+  <text x="77" y="182" fill="#fff" font-size="8" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">R. Met.</text>
+  <text x="75" y="217" fill="#fff" font-size="7" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">O'Hig./Maule</text>
+  <text x="72" y="265" fill="#fff" font-size="7" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Biobío/Ñuble</text>
+  <text x="68" y="312" fill="#fff" font-size="7" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Araucanía+</text>
+  <text x="60" y="415" fill="#fff" font-size="8" font-family="'DM Mono',monospace" text-anchor="middle" pointer-events="none" opacity="0.9">Austral</text>
+</svg>`;
+
+function getRegionColor(country, regionId) {
+  const data = MAP_DATA[country];
+  if (!data) return '#2a2d3e';
+  const region = data.regions.find(r => r.id === regionId);
+  if (!region) return '#2a2d3e';
+  const prices = data.regions.map(r => r.price);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  return priceToColor(region.price, min, max, country);
+}
+
+function selectCountry(country, btn) {
+  currentCountry = country;
+  selectedRegion = null;
+  document.querySelectorAll('.country-tab').forEach(b => {
+    b.classList.remove('active-br','active-ar','active-cl');
+  });
+  btn.classList.add(`active-${country.toLowerCase()}`);
+  renderMap(country);
+}
+
+function renderMap(country) {
+  const data = MAP_DATA[country];
+  document.getElementById('mapTitle').textContent = data.title;
+  document.getElementById('mapSubtitle').textContent = data.subtitle;
+  document.getElementById('pStart').textContent = data.pStart;
+  document.getElementById('pChange').textContent = data.pChange;
+  document.getElementById('pChange').style.color = '#ef4444';
+  document.getElementById('pFrom').textContent = data.pFrom;
+  document.getElementById('pTo').textContent = data.pTo;
+  document.getElementById('legendRange').textContent = `Faixa: ${data.legendMin} → ${data.legendMax}`;
+
+  // SVG
+  const container = document.getElementById('mapSvgContainer');
+  const svgs = { BR: BR_SVG, AR: AR_SVG, CL: CL_SVG };
+  container.innerHTML = svgs[country];
+
+  // Recolor regions
+  const prices = data.regions.map(r => r.price);
+  const minP = Math.min(...prices), maxP = Math.max(...prices);
+  container.querySelectorAll('.region-path').forEach(path => {
+    const rid = path.dataset.region;
+    const reg = data.regions.find(r => r.id === rid);
+    if (reg) {
+      path.setAttribute('fill', priceToColor(reg.price, minP, maxP, country));
+    }
+    path.addEventListener('mouseenter', (e) => showTooltip(e, rid, country));
+    path.addEventListener('mouseleave', hideTooltip);
+    path.addEventListener('click', () => selectRegion(rid, country));
+  });
+
+  // Render region list
+  renderRegionList(country);
+
+  // Postos
+  const postoCard = document.getElementById('postoCard');
+  const postoList = document.getElementById('postoList');
+  if (data.postos) {
+    postoCard.style.display = 'block';
+    postoList.innerHTML = data.postos.map(p => `
+      <div class="posto-item">
+        <div class="posto-name">${p.flag} ${p.name}</div>
+        <div class="posto-loc">📍 ${p.loc}</div>
+        <div class="posto-price" style="color:${countryColors[country]}">${p.price}</div>
+        <div class="posto-note">${p.note}</div>
+      </div>`).join('');
+  } else {
+    postoCard.style.display = 'none';
+  }
+}
+
+function renderRegionList(country) {
+  const data = MAP_DATA[country];
+  const prices = data.regions.map(r => r.price);
+  const minP = Math.min(...prices), maxP = Math.max(...prices);
+  const sorted = [...data.regions].sort((a,b) => a.price - b.price);
+  document.getElementById('regionList').innerHTML = sorted.map(r => `
+    <div class="region-item" data-rid="${r.id}" onclick="selectRegion('${r.id}','${country}')">
+      <div class="ri-dot" style="background:${priceToColor(r.price, minP, maxP, country)}"></div>
+      <div>
+        <div class="ri-name">${r.name}</div>
+        <div class="ri-change">${r.sub.split(',')[0]}</div>
+      </div>
+      <div>
+        <div class="ri-price" style="color:${countryColors[country]}">${formatPrice(r.price, country)}</div>
+        <div class="ri-change">${r.change}</div>
+      </div>
+    </div>`).join('');
+}
+
+function formatPrice(price, country) {
+  if (country === 'BR') return `R$ ${price.toFixed(2).replace('.',',')}`;
+  if (country === 'AR') return `ARS$ ${price.toLocaleString('es-AR')}`;
+  if (country === 'CL') return `CLP$ ${price.toLocaleString('es-CL')}`;
+  return price;
+}
+
+function showTooltip(e, regionId, country) {
+  const data = MAP_DATA[country];
+  const region = data.regions.find(r => r.id === regionId);
+  if (!region) return;
+  const tooltip = document.getElementById('mapTooltip');
+  const postoInfo = data.postos ? data.postos.filter(p => {
+    if (country === 'AR') {
+      if (regionId === 'litoral' && p.name.includes('Garramuño')) return true;
+      if (regionId === 'cuyo' && p.name.includes('Guerrero')) return true;
+    }
+    return false;
+  }) : [];
+
+  tooltip.innerHTML = `
+    <div class="tt-region">${region.name}</div>
+    <div class="tt-price" style="color:${countryColors[country]}">${formatPrice(region.price, country)}</div>
+    <div class="tt-detail">${region.detail}</div>
+    <div class="tt-detail" style="margin-top:3px;color:#4ade80">${region.change} no período</div>
+    ${postoInfo.map(p => `<div class="tt-posto">⭐ ${p.name}: ${p.price}</div>`).join('')}`;
+  tooltip.classList.add('show');
+
+  const container = document.getElementById('mapContainer');
+  const rect = container.getBoundingClientRect();
+  let x = e.clientX - rect.left + 12;
+  let y = e.clientY - rect.top + 12;
+  if (x + 200 > container.offsetWidth) x = e.clientX - rect.left - 210;
+  if (y + 120 > container.offsetHeight) y = e.clientY - rect.top - 130;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+}
+
+function hideTooltip() {
+  document.getElementById('mapTooltip').classList.remove('show');
+}
+
+function selectRegion(regionId, country) {
+  selectedRegion = regionId;
+  document.querySelectorAll('.region-path').forEach(p => p.classList.remove('selected'));
+  const path = document.querySelector(`[data-region="${regionId}"]`);
+  if (path) path.classList.add('selected');
+  document.querySelectorAll('.region-item').forEach(item => item.classList.remove('selected'));
+  const item = document.querySelector(`.region-item[data-rid="${regionId}"]`);
+  if (item) { item.classList.add('selected'); item.scrollIntoView({block:'nearest'}); }
+}
+
+// ═══════════════════════════════════════════════
+// CLAUDE API
+// ═══════════════════════════════════════════════
+async function callClaude(prompt, withSearch=true) {
+  const body = { model: MODEL, max_tokens: 1000, messages: [{ role:'user', content: prompt }] };
+  if (withSearch) body.tools = [{ type:'web_search_20250305', name:'web_search' }];
+  const res = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  const data = await res.json();
+  return data.content.map(b => b.type==='text' ? b.text : '').filter(Boolean).join('\n');
+}
+
+async function fetchPrices() {
+  const today = new Date().toLocaleDateString('pt-BR');
+  const prompt = `Hoje é ${today}. Período de apuração: 01/fev/2026 a hoje. Busque na web preços ATUAIS de combustíveis e retorne SOMENTE JSON válido sem markdown:
+{"date":"data hoje pt-BR","br":{"cur":"R$ X,XX","sub":"R$/L · média nacional","change":"var período","yoy":"01/fev/26","up":true},"ar":{"cur":"$ X.XXX","sub":"ARS/L · CABA YPF","change":"var período","yoy":"01/fev/26","up":true},"cl":{"cur":"$ X.XXX","sub":"CLP/L · RM COPEC","change":"var período","yoy":"01/fev/26","up":true},"brent":{"cur":"XXX","sub":"USD/barril · hoje","change":"var período","yoy":"01/fev","up":true,"prev":"$72","delta":"+XX%"},"brentNote":"nota breve","d10_br":[${L_PERIOD.length} nums 01fev-hoje],"d10_ar":[${L_PERIOD.length} nums],"d10_cl":[${L_PERIOD.length} nums],"causes":["c1","c2","c3","c4","c5"],"proj":[{"mes":"Mês/Ano","brent":"$XX-XX","br":"R$X,XX-X,XX","scenario":"PALAVRA"}],"projNote":"nota"}`;
+  try {
+    const raw = await callClaude(prompt, true);
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const s = clean.indexOf('{'), e = clean.lastIndexOf('}');
+    if (s === -1) throw new Error('No JSON');
+    const d = JSON.parse(clean.slice(s, e+1));
+    applyLiveData(d);
+  } catch(e) {
+    console.warn('Usando dados estáticos:', e.message);
+  }
+}
+
+function applyLiveData(d) {
+  ['br','ar','cl','brent'].forEach(k => {
+    const info = d[k]; if (!info) return;
+    document.getElementById(`kv-${k}`).textContent = info.cur || '—';
+    document.getElementById(`ks-${k}`).textContent = info.sub || '';
+    const chEl = document.getElementById(`kc-${k}`);
+    chEl.textContent = (info.up ? '▲ ' : '▼ ') + (info.change || '');
+    chEl.className = `kchange ${info.up ? 'chup' : 'chdn'}`;
+    document.getElementById(`kyoy-${k}`).textContent = info.yoy || '';
+  });
+  if (d.brent) {
+    const val = parseFloat(String(d.brent.cur).replace(/[^0-9.]/g,'')) || 100;
+    document.getElementById('brentVal').textContent = Math.round(val);
+    if (d.brentNote) document.getElementById('brentNote').innerHTML = d.brentNote.replace(/\n/g,'<br>');
+    document.getElementById('brentPrev').textContent = d.brent.prev || '$72';
+    document.getElementById('brentDelta').textContent = d.brent.delta || '+55%';
+    const pct = Math.min(val/150, 1);
+    document.getElementById('brentArc').setAttribute('stroke-dashoffset', 301.6*(1-pct*0.7));
+  }
+  if (d.d10_br && d.d10_ar && d.d10_cl && d.d10_br.length === L_PERIOD.length && d.d10_ar.length === L_PERIOD.length && d.d10_cl.length === L_PERIOD.length) {
+    updateChartPeriod('cBR', d.d10_br, '#f5a623', 'R$/L', 'R$', 195);
+    updateChartPeriod('cAR', d.d10_ar, '#4fc3f7', 'ARS/L', 'ARS$', 165);
+    updateChartPeriod('cCL', d.d10_cl, '#e84393', 'CLP/L', 'CLP$', 165);
+  }
+  if (d.causes && d.causes.length) {
+    document.getElementById('causesContent').innerHTML = d.causes.map((c,i)=>
+      `<div class="ci"><div class="cn">${i+1}</div><div class="ct">${c}</div></div>`).join('');
+  }
+  if (d.proj && d.proj.length) {
+    const colors = ['#ef4444','#fbbf24','#4ade80','#4ade80'];
+    const tagCls = ['tb','tm','tg','tg'];
+    document.getElementById('projRows').innerHTML = d.proj.map((p,i)=>`
+      <tr><td>${p.mes}</td><td style="color:${colors[i]||'#9ca3af'}">${p.brent}</td><td style="color:${colors[i]||'#9ca3af'}">${p.br}</td><td><span class="stag ${tagCls[i]||'tg'}">${p.scenario}</span></td></tr>`).join('');
+    if (d.projNote) document.getElementById('projNote').innerHTML = d.projNote.replace(/\n/g,'<br>');
+  }
+  document.getElementById('lastUpdateTime').textContent = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+
+async function fetchNews() {
+  const today = new Date().toLocaleDateString('pt-BR');
+  const prompt = `Hoje é ${today}. Período de apuração: 01/fev/2026 a hoje. Busque ÚLTIMAS notícias sobre combustíveis, petróleo Brent, diesel no Brasil (ANP), Argentina (YPF/gasoil) e Chile (ENAP/COPEC). Retorne SOMENTE JSON:{"timestamp":"HH:MM · DD/MM/YYYY","ticker":"notícias separadas por · ","news":[{"h":"título","t":"resumo","time":"Hoje, HH:MM","color":"#cor","tag":"categoria","src":"fonte"}]}`;
+  try {
+    const raw = await callClaude(prompt, true);
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const s = clean.indexOf('{'), e = clean.lastIndexOf('}');
+    if (s === -1) throw new Error('No JSON');
+    const d = JSON.parse(clean.slice(s, e+1));
+    if (d.ticker) document.getElementById('newsTicker').textContent = d.ticker;
+    if (d.timestamp) document.getElementById('newsTimestamp').textContent = d.timestamp;
+  } catch(e) { console.warn('News fetch falhou:', e.message); }
+}
+
+// ═══════════════════════════════════════════════
+// MODAL DATA — Período fev–out/2026
+// ═══════════════════════════════════════════════
+const MO_PERIOD = L_PERIOD;
+const COMP_IDX = [9, 10, 11, 12, 13, 15, 16, 18, 19]; // marcos exibidos no gráfico comparativo
+let mInst = null;
+
+const MODAL_DATA = {
+  br:{ flag:'🇧🇷',title:'Brasil — Diesel S10',sub:'Período: 01/fev/2026 a 22/out/2026',color:'#f5a623',sym:'R$',unit:'R$/L',
+    series: STATIC_DATA.d10_br,
+    kpis:[{l:'Início período',v:'R$ 6,09',s:'01/fev/2026 · ANP',c:'#6b7280'},{l:'Atual',v:'R$ 7,34',s:'Semana 11–17/out · ANP',c:'#f5a623'},{l:'Δ Período',v:'+20,5%',s:'+R$ 1,25/L em 264 dias',c:'#ef4444',up:true}],
+    note:'Diesel S10 acumula +20,5% desde 01/fev. Após o pico do choque Ormuz (média de abril R$7,45), recuou para R$6,88 no fim de agosto e voltou a subir em setembro (+R$0,36 em duas semanas), estabilizando em ~R$7,34 há quatro semanas. A subvenção ao importado (R$3,52/L desde 13/out) está quase igual à defasagem da Petrobras (R$3,50/L, Abicom). Faixa por posto: R$5,89–R$9,99. Pontos de abr/jun são médias mensais; demais, semanas ANP.',
+    timeline:[{d:'01/fev/26',t:'<strong>Início apuração:</strong> R$6,09/L. Brent ~$72.',c:'#6b7280'},{d:'28/fev/26',t:'<strong>Conflito Ormuz:</strong> choque de preços inicia.',c:'#ef4444'},{d:'28/mar/26',t:'<strong>ANP:</strong> S10 → R$7,57. PF investiga abuso.',c:'#ef4444'},{d:'Abr/26',t:'<strong>Média de abril:</strong> R$7,45/L.',c:'#f5a623'},{d:'Mai/26',t:'<strong>Média de maio:</strong> R$7,18 (−3,6% vs abril). Semana 10–16/mai: R$7,20.',c:'#fbbf24'},{d:'18/jul/26',t:'<strong>ANP:</strong> S10 R$6,94 — menor nível da série recente.',c:'#4ade80'},{d:'29/ago/26',t:'<strong>ANP:</strong> R$6,88 (mínimo do segundo semestre).',c:'#4ade80'},{d:'26/set/26',t:'<strong>ANP:</strong> R$7,33 (+R$0,36 em duas semanas; Brent volta a ~$100).',c:'#fbbf24'},{d:'13/out/26',t:'<strong>Subvenção ao importado:</strong> R$3,52/L.',c:'#4fc3f7'},{d:'17/out/26',t:'<strong>ANP:</strong> R$7,34 · AC R$8,21 (máx.) · ES R$6,84 (mín.).',c:'#ff6b35'}],
+    ctx:`<div class="mst">🌐 Estrutura e política — Brasil (out/26)</div><div style="background:#0f1117;border-radius:10px;padding:14px;border:1px solid var(--border);font-size:11px;line-height:2">
+<div style="display:flex;justify-content:space-between"><span>Diesel S10 (ANP, 11–17/out)</span><span style="color:#f5a623">R$7,34</span></div>
+<div style="display:flex;justify-content:space-between"><span>Diesel S500 (ANP, 11–17/out)</span><span>R$7,00</span></div>
+<div style="display:flex;justify-content:space-between"><span>Defasagem Petrobras vs paridade (Abicom, Brent $111)</span><span style="color:#fbbf24">R$3,50/L</span></div>
+<div style="display:flex;justify-content:space-between"><span>Subvenção ao importado (desde 13/out)</span><span style="color:#fbbf24">R$3,52/L</span></div>
+<div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:5px;font-weight:600"><span>Parcela extra R$1,40 + R$2,12</span><span style="color:#f5a623">vale até 12/nov</span></div></div><div style="margin-top:10px;font-size:10px;color:var(--muted);line-height:1.6;padding:10px;background:#0f1117;border-radius:8px">⚠️ A parcela extra pode ser prorrogada por igual período. Frete rodoviário +13,1% no 3º tri (IFP/Frete.com). EPE: consumo de diesel 72,4 bi L em 2026 (+2,4%).</div>`},
+  ar:{ flag:'🇦🇷',title:'Argentina — Gasoil',sub:'Período: 01/fev/2026 a 22/out/2026',color:'#4fc3f7',sym:'ARS$',unit:'ARS/L',
+    series: STATIC_DATA.d10_ar,
+    kpis:[{l:'Início período',v:'ARS$ 1.620',s:'Fev/26 · CABA YPF',c:'#6b7280'},{l:'Atual',v:'ARS$ 2.469',s:'20/out · YPF Infinia Diésel',c:'#4fc3f7'},{l:'Δ Período',v:'+52,4%',s:'+ARS$849/L em 264 dias',c:'#ef4444',up:true}],
+    note:'Gasoil premium (Infinia Diésel) em CABA: ARS$2.469 em 20/out (La Nación); o cadastro oficial mostrava ARS$2.379 em 16/out, e o gasoil comum está em ARS$2.249. YPF reajustou 1% em 26/set (primeiro desde maio) dentro do programa de buffer; Shell/Axion/Puma subiram 2–5% em 24/set. Linha tracejada = sem cotação confiável no intervalo. Valores regionais e dos postos são estimativas.',
+    timeline:[{d:'01/fev/26',t:'<strong>Início:</strong> ARS$1.620.',c:'#6b7280'},{d:'28/fev/26',t:'<strong>Conflito Ormuz:</strong> pressão acelerada nos importados.',c:'#ef4444'},{d:'06/abr/26',t:'<strong>YPF anuncia congelamento de 45 dias:</strong> ARS$2.050 CABA.',c:'#4fc3f7'},{d:'12/mai/26',t:'<strong>YPF volta a reajustar</strong> (Neuquén: Diésel 500 ARS$2.213 · Infinia Diésel ARS$2.509).',c:'#fbbf24'},{d:'24/set/26',t:'<strong>Shell/Axion/Puma</strong> +2–5% com Brent em alta.',c:'#ef4444'},{d:'26/set/26',t:'<strong>YPF +1%:</strong> primeiro aumento desde maio (buffer).',c:'#4fc3f7'},{d:'16/out/26',t:'<strong>Cadastro oficial:</strong> YPF CABA gasoil ARS$2.195 · premium ARS$2.379.',c:'#4fc3f7'},{d:'20/out/26',t:'<strong>La Nación:</strong> YPF CABA gasoil ARS$2.249 · premium ARS$2.469.',c:'#ff6b35'}],
+    ctx:`<div class="mst">🌐 Postos Monitorados — Argentina (estimativa)</div>
+<div style="background:#0f1117;border-radius:10px;padding:14px;border:1px solid var(--border);font-size:11px;line-height:1.9;margin-bottom:10px">
+<div style="color:#f59e0b;font-weight:700;margin-bottom:6px">⭐ Posto Garramuño — Paso de Los Libres (Corrientes)</div>
+<div style="color:var(--muted)">Região NEA/Litoral · Entre os mais caros do país</div>
+<div style="color:var(--ar);font-size:16px;font-weight:700;margin:4px 0">ARS$ ~2.529 / litro (est.)</div>
+<div style="color:var(--muted);font-size:10px">Gasoil Premium · Fronteira BR-AR · Base de referência operacional · sem cotação direta: ARS$2.100 de abr/26 reescalado pela alta do YPF CABA (+20,4%)</div>
+</div>
+<div style="background:#0f1117;border-radius:10px;padding:14px;border:1px solid var(--border);font-size:11px;line-height:1.9">
+<div style="color:#f59e0b;font-weight:700;margin-bottom:6px">⭐ Posto Eloy Guerrero — Mendoza (Cuyo)</div>
+<div style="color:var(--muted)">Região Cuyo · Entre os mais baratos do país</div>
+<div style="color:var(--ar);font-size:16px;font-weight:700;margin:4px 0">ARS$ ~2.349 / litro (est.)</div>
+<div style="color:var(--muted);font-size:10px">Gasoil padrão YPF · estimativa: ARS$1.950 de abr/26 reescalado · confirme na bomba</div>
+</div>`},
+  cl:{ flag:'🇨🇱',title:'Chile — Diésel',sub:'Período: 01/fev/2026 a 22/out/2026',color:'#e84393',sym:'CLP$',unit:'CLP/L',
+    series: STATIC_DATA.d10_cl,
+    kpis:[{l:'Início período',v:'CLP$ 975',s:'Fev/26 · RM',c:'#6b7280'},{l:'Atual',v:'CLP$ 1.463',s:'RM · CNE 20/out (pré-reajuste)',c:'#e84393'},{l:'Δ Período',v:'+50,1%',s:'+CLP$ 488/L em 264 dias',c:'#ef4444',up:true}],
+    note:'Diesel RM em CLP$1.463 (CNE, 20/out), abaixo do patamar de abril (CLP$1.512 em 06/abr; média RM ~1.498 em meados de abr). ENAP cortou o diesel em $155,4/L em 9/jul e voltou a subir: +$91,5/L a partir de 22/out (5ª alta consecutiva dos combustíveis). Governo subsidia o diesel em ~$200/L. Média nacional: CLP$1.498; Aysén/Magallanes os mais caros (~CLP$1.650). Linha tracejada = sem média confiável no intervalo.',
+    timeline:[{d:'01/fev/26',t:'<strong>Início:</strong> CLP$975/L. MEPCO ativo.',c:'#6b7280'},{d:'28/fev/26',t:'<strong>Conflito Ormuz:</strong> pressão imediata nos importados.',c:'#ef4444'},{d:'26/mar/26',t:'<strong>ENAP aplica:</strong> diésel +$580,3/L. RM: CLP$1.512.',c:'#ef4444'},{d:'Abr/26',t:'<strong>Média RM:</strong> ~CLP$1.498.',c:'#e84393'},{d:'09/jul/26',t:'<strong>ENAP:</strong> diesel −$155,4/L · gasolinas −$100/L.',c:'#4ade80'},{d:'Set–Out/26',t:'<strong>Sequência de altas</strong> semanais conforme Brent volta a $100+.',c:'#fbbf24'},{d:'15/out/26',t:'<strong>CNE:</strong> RM CLP$1.462 · média nacional CLP$1.498.',c:'#e84393'},{d:'22/out/26',t:'<strong>ENAP:</strong> diesel +$91,5/L (reajuste a refletir nos postos).',c:'#ef4444'}],
+    ctx:`<div class="mst">🌐 Redes Monitoradas — Chile</div>
+<div style="background:#0f1117;border-radius:10px;padding:14px;border:1px solid var(--border);font-size:11px;line-height:1.9;margin-bottom:10px">
+<div style="color:#f59e0b;font-weight:700;margin-bottom:6px">⛽ Rede COPEC (maior rede do Chile)</div>
+<div style="color:var(--muted)">Todo o Chile · RM e regiões</div>
+<div style="color:var(--cl);font-size:16px;font-weight:700;margin:4px 0">CLP$ 1.463 / litro (média RM)</div>
+<div style="color:var(--muted);font-size:10px">Menores diesel observados em Santiago: ~CLP$1.375 (Copec, 1–9/out) · reajuste ENAP +$91,5/L desde 22/out</div>
+</div>
+<div style="background:#0f1117;border-radius:10px;padding:14px;border:1px solid var(--border);font-size:11px;line-height:1.9">
+<div style="color:#f59e0b;font-weight:700;margin-bottom:6px">⛽ Shell Chile</div>
+<div style="color:var(--muted)">Principais cidades e rodovias</div>
+<div style="color:var(--cl);font-size:16px;font-weight:700;margin:4px 0">CLP$ 1.463 / litro (ref. RM)</div>
+<div style="color:var(--muted);font-size:10px">Sem cotação individual nesta atualização · descontos de app de abr/26 não reverificados</div>
+</div>
+<div style="margin-top:10px;font-size:10px;color:var(--muted);line-height:1.6;padding:10px;background:#0f1117;border-radius:8px">🇨🇱 Chile: 99% de dependência de importação. Fonte oficial: Bencina en Línea (Comisión Nacional de Energía). Subsídio do diesel ~$200/L (Hacienda).</div>`},
+  brent:{ flag:'🛢',title:'Petróleo Brent',sub:'Período: 01/fev/2026 a 22/out/2026',color:'#ff6b35',sym:'$',unit:'USD/bbl',
+    series: STATIC_DATA.b_abs,
+    kpis:[{l:'Início período',v:'$ 72',s:'01/fev/26 · antes conflito',c:'#6b7280'},{l:'Pico período',v:'$ ~126',s:'Máxima intradiária · 30/abr/26',c:'#ef4444'},{l:'Hoje',v:'$ 111,8',s:'22/out/26 · maior nível desde maio',c:'#ff6b35',up:true}],
+    note:'Brent (futuros ICE) saltou de ~$72 para ~$126 (máx. 30/abr), despencou 13% em 8/abr com o cessar-fogo e chegou a $73,74 em 24/jun (menor fechamento desde 28/fev). Rebateu em set–out e fechou a $109,86 em 16/out e ~$111,8 em 22/out com ataques a petroleiros em Ormuz e ataques ucranianos a infraestrutura russa. Obs.: 06/abr (~$100) é o ponto original do relatório; fechamento de 02/abr foi $109,03.',
+    timeline:[{d:'01/fev/26',t:'<strong>Início:</strong> ~$72/bbl. Mercado estável.',c:'#6b7280'},{d:'28/fev/26',t:'<strong>GUERRA EUA-Israel-Irã:</strong> Ormuz bloqueado.',c:'#ef4444'},{d:'21/mar/26',t:'<strong>Brent atinge ~$119:</strong> maior ganho mensal desde 1988.',c:'#ef4444'},{d:'08/abr/26',t:'<strong>Cessar-fogo:</strong> Brent −13% para $94,75 (maior queda diária desde abr/2020).',c:'#4ade80'},{d:'30/abr/26',t:'<strong>Máxima de ~$126</strong> (fecha $114,01) após ameaça de bloqueio dos EUA.',c:'#ef4444'},{d:'24/jun/26',t:'<strong>$73,74:</strong> menor fechamento desde 28/fev; petroleiros cruzam Ormuz.',c:'#4ade80'},{d:'28/jul/26',t:'<strong>Cai abaixo de $83</strong> pela 1ª vez desde 17/jul.',c:'#4ade80'},{d:'16/out/26',t:'<strong>$109,86:</strong> volta a $110, maior nível desde maio.',c:'#ef4444'},{d:'22/out/26',t:'<strong>$111,77 (+2,7%):</strong> ataques a petroleiros; estoques EUA −3,1 mi bbl.',c:'#ff6b35'}],
+    ctx:`<div class="mst">🌐 Impacto Regional do Brent · Período</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+<div style="background:#0f1117;border-radius:9px;padding:12px;border-top:2px solid var(--br);border:1px solid var(--border)"><div style="color:var(--br);font-size:11px;font-weight:700;margin-bottom:6px">🇧🇷 Brasil</div><div style="font-size:10px;color:var(--muted);line-height:1.8">Diesel S10: +20,5%<br>Fev: R$6,09 → Out: R$7,34<br><span style="color:var(--text)">Defasagem R$3,50 ≈ subvenção R$3,52</span></div></div>
+<div style="background:#0f1117;border-radius:9px;padding:12px;border-top:2px solid var(--ar);border:1px solid var(--border)"><div style="color:var(--ar);font-size:11px;font-weight:700;margin-bottom:6px">🇦🇷 Argentina</div><div style="font-size:10px;color:var(--muted);line-height:1.8">Gasoil CABA: +52,4%<br>Fev: ARS$1.620 → ARS$2.469<br><span style="color:var(--text)">YPF: reajustes em degraus</span></div></div>
+<div style="background:#0f1117;border-radius:9px;padding:12px;border-top:2px solid var(--cl);border:1px solid var(--border)"><div style="color:var(--cl);font-size:11px;font-weight:700;margin-bottom:6px">🇨🇱 Chile</div><div style="font-size:10px;color:var(--muted);line-height:1.8">Diésel RM: +50,1%<br>Fev: CLP$975 → $1.463<br><span style="color:#ef4444">+$91,5/L em 22/out</span></div></div>
+</div>`},
+  comp:{ flag:'🌎',title:'Comparativo Regional',sub:'Variação % acumulada — 01/fev a 22/out/2026',color:'#9ca3af',
+    kpis:[{l:'🇧🇷 +20,5%',v:'R$6,09→7,34',s:'Diesel S10',c:'#f5a623'},{l:'🇦🇷 +52,4%',v:'ARS$1.620→2.469',s:'Gasoil CABA',c:'#4fc3f7'},{l:'🇨🇱 +50,1%',v:'CLP$975→1.463',s:'Diésel RM',c:'#e84393'}],
+    note:'Argentina lidera (+52,4%) com reajustes em degraus do YPF; Chile +50,1% (já descontado o alívio de jul, antes do reajuste de 22/out) e Brasil +20,5%, amortecido pela subvenção ao importado. Brent +55% (~$112). Barras vazias = sem cotação confiável no marco.',
+    timeline:[{d:'01/fev/26',t:'<strong>Base:</strong> BR R$6,09 · AR ARS$1.620 · CL CLP$975 · Brent $72',c:'#6b7280'},{d:'28/fev/26',t:'<strong>Conflito Ormuz:</strong> choque sincronizado nos 3 países.',c:'#ef4444'},{d:'26/mar/26',t:'<strong>Chile explode:</strong> +$580/L diésel.',c:'#e84393'},{d:'24/jun/26',t:'<strong>Brent $73,74</strong> — alívio parcial nos preços.',c:'#4ade80'},{d:'26/set/26',t:'<strong>Rali de set–out:</strong> reajustes AR (Shell/Axion/Puma/YPF) e alta BR.',c:'#fbbf24'},{d:'22/out/26',t:'<strong>Brent $112 · ENAP +$91,5/L · BR estável R$7,34</strong>.',c:'#ff6b35'}],
+    ctx:'<div class="mst">🌐 Resumo Comparativo · 22/out/26</div><div style="background:#0f1117;border-radius:10px;padding:14px;border:1px solid var(--border);font-size:11px;line-height:1.9;color:var(--muted)">🇧🇷 Subvenção (R$2,12 + R$1,40) vence 12/nov, prorrogável; defasagem R$3,50 já encosta nos R$3,52<br>🇦🇷 YPF segue em buffer; Marín: barril ~US$100 sustentado exige repasse<br>🇨🇱 ENAP +$91,5/L em 22/out; subsídio de ~$200/L pressiona as finanças públicas<br><br>Todos dependem da evolução do conflito em Ormuz.</div>'
+  }
+};
+
+function openModal(key) {
+  const d = MODAL_DATA[key]; if (!d) return;
+  document.getElementById('mFlag').textContent = d.flag;
+  document.getElementById('mTitle').textContent = d.title;
+  document.getElementById('mSub').textContent = d.sub;
+  document.getElementById('mKpis').innerHTML = d.kpis.map(k=>`
+    <div class="mkpi"><div class="mkl">${k.l}</div><div class="mkv" style="color:${k.c}">${k.v}</div><div class="mks">${k.s}</div>
+    ${k.up!==undefined?`<div class="dbadge ${k.up?'dup':'ddn'}">${k.up?'▲':'▼'} ${k.v}</div>`:''}</div>`).join('');
+  document.getElementById('mNote').innerHTML = d.note || '';
+  document.getElementById('mChartTitle').textContent = `📊 Evolução — 01/fev a 22/out/2026 (${d.unit||''})`;
+  document.getElementById('mTimeline').innerHTML = (d.timeline||[]).map(t=>`
+    <div class="tli" style="--ac:${t.c}"><div class="tldate">${t.d}</div><div class="tltext">${t.t}</div></div>`).join('');
+  document.getElementById('mContext').innerHTML = d.ctx || '';
+  if (mInst) { mInst.destroy(); mInst=null; }
+  const ctx = document.getElementById('mChart').getContext('2d');
+  const gapDash = c => (c.p1DataIndex - c.p0DataIndex > 1) ? [5,4] : undefined;
+  if (key === 'comp') {
+    const pick = arr => COMP_IDX.map(i => arr[i]);
+    mInst = new Chart(ctx,{type:'bar',data:{labels:COMP_IDX.map(i=>L_PERIOD[i]),datasets:[
+      {label:'🇧🇷 BR %',data:pick(STATIC_DATA.comp_br),backgroundColor:'rgba(245,166,35,.7)',borderColor:'#f5a623',borderWidth:1,borderRadius:3},
+      {label:'🇦🇷 AR %',data:pick(STATIC_DATA.comp_ar),backgroundColor:'rgba(79,195,247,.7)',borderColor:'#4fc3f7',borderWidth:1,borderRadius:3},
+      {label:'🇨🇱 CL %',data:pick(STATIC_DATA.comp_cl),backgroundColor:'rgba(232,67,147,.7)',borderColor:'#e84393',borderWidth:1,borderRadius:3},
+      {label:'🛢 Brent %',data:pick(STATIC_DATA.comp_brent),backgroundColor:'rgba(255,107,53,.7)',borderColor:'#ff6b35',borderWidth:1,borderRadius:3}
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{color:'#9ca3af',padding:14,usePointStyle:true}},tooltip:{backgroundColor:'#111318',borderColor:'#1e2130',borderWidth:1,callbacks:{label:c=>c.raw==null?` ${c.dataset.label}: sem dado`:` ${c.dataset.label}: +${c.raw.toFixed(1)}%`}}},scales:{x:{grid:{color:'#1e2130'}},y:{grid:{color:'#1e2130'},ticks:{callback:v=>v+'%'}}}}});
+  } else if (d.series) {
+    const g = mkGrad(ctx, 230, d.color||'#ffffff', .28, 0);
+    const base = d.series[0];
+    mInst = new Chart(ctx,{type:'line',data:{labels:L_PERIOD,datasets:[
+      {label:'Base 01/fev',data:d.series.map(()=>base),borderColor:(d.color||'#fff')+'66',backgroundColor:'transparent',borderWidth:2,borderDash:[6,4],pointRadius:0,tension:0},
+      {label:'Período 01/fev–22/out',data:d.series,borderColor:d.color,backgroundColor:g,borderWidth:3,pointRadius:3,tension:.35,fill:true,spanGaps:true,segment:{borderDash:gapDash}}
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{position:'top',labels:{usePointStyle:true,padding:14,color:'#9ca3af'}},
+        tooltip:{backgroundColor:'#111318',borderColor:d.color,borderWidth:1,
+          callbacks:{label:c=>c.raw==null?` ${c.dataset.label}: sem dado`:` ${c.dataset.label}: ${d.sym||''}${c.raw.toLocaleString('pt-BR')} ${d.unit||''}`,
+            afterBody:items=>{const cur=items.find(i=>i.datasetIndex===1);if(cur&&cur.raw!=null){const diff=cur.raw-base;const pct=((diff/base)*100).toFixed(1);return['',`  Δ vs 01/fev: ${diff>=0?'+':''}${(d.sym||'')}${Math.abs(diff).toLocaleString('pt-BR',{maximumFractionDigits:2})} (${diff>=0?'+':''}${pct}%)`];}return[];}}
+        }},
+      scales:{x:{grid:{color:'#1e2130'}},y:{grid:{color:'#1e2130'},ticks:{callback:v=>(d.sym||'')+v.toLocaleString('pt-BR')}}}
+    }});
+  }
+  document.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tpanel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.mtab')[0].classList.add('active');
+  document.getElementById('tp-chart').classList.add('active');
+  document.getElementById('mOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeModal(){ document.getElementById('mOverlay').classList.remove('open'); document.body.style.overflow=''; }
+function switchTab(btn,id){ document.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.tpanel').forEach(p=>p.classList.remove('active')); btn.classList.add('active'); document.getElementById(id).classList.add('active'); }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+// ═══════════════════════════════════════════════
+// COUNTDOWN
+// ═══════════════════════════════════════════════
+function startCountdown(targetMs) {
+  nextUpdateAt = targetMs;
+  if (countdownInterval) clearInterval(countdownInterval);
+  countdownInterval = setInterval(()=>{
+    const rem = nextUpdateAt - Date.now();
+    if (rem <= 0) { document.getElementById('countdownTimer').textContent='00:00'; return; }
+    const h = Math.floor(rem/3600000), m = Math.floor((rem%3600000)/60000), s = Math.floor((rem%60000)/1000);
+    document.getElementById('countdownTimer').textContent =
+      h > 0 ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+             : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }, 1000);
+}
+
+async function triggerFullUpdate() {
+  const btn = document.getElementById('btnUpdate');
+  btn.textContent = '⏳ Atualizando...'; btn.style.pointerEvents='none';
+  try { await Promise.all([fetchPrices(), fetchNews()]); }
+  finally { btn.textContent='🔄 Atualizar Agora'; btn.style.pointerEvents='auto'; startCountdown(Date.now()+UPDATE_INTERVAL_MS); }
+}
+
+// ═══════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════
+(function boot() {
+  renderCharts();
+  renderMap('BR');
+  startCountdown(Date.now() + UPDATE_INTERVAL_MS);
+  setInterval(async ()=>{ await fetchPrices(); startCountdown(Date.now()+UPDATE_INTERVAL_MS); }, UPDATE_INTERVAL_MS);
+  setInterval(fetchNews, NEWS_INTERVAL_MS);
+  setTimeout(()=>{ fetchPrices(); fetchNews(); }, 800);
+})();
+</script>
+</body>
+</html>
